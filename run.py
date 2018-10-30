@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 
 FRAME_SIZE = (720, 1280, 3)
+FAST_FEATURE_THRESHOLD = 20
 
 
 def feature_detector(path):
@@ -10,7 +11,7 @@ def feature_detector(path):
     if frame.shape != FRAME_SIZE:
         frame = cv2.resize(frame, FRAME_SIZE, cv2.INTER_LINEAR)
 
-    fast = cv2.FastFeatureDetector_create(threshold=50, nonmaxSuppression=True,
+    fast = cv2.FastFeatureDetector_create(threshold=FAST_FEATURE_THRESHOLD, nonmaxSuppression=True,
                                           type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16)
     # as paper said, " we divide a single frame into 5×5 regular grids
     # and for each grid we use an independent FAST feature detec-tor."
