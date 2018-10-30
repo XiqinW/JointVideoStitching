@@ -2,38 +2,34 @@ import cv2
 import numpy as np
 
 FRAME_SIZE = (720, 1280, 3)
-FAST_FEATURE_THRESHOLD = 20
+FAST_FEATURE_THRESHOLD = 50
 
 
 def feature_detector(path):
-    frame = cv2.imread(path)
+    original_frame = cv2.imread(path)
+    frame = original_frame.copy()
 
     if frame.shape != FRAME_SIZE:
-        frame = cv2.resize(frame, FRAME_SIZE, cv2.INTER_LINEAR)
+        frame = cv2.resize(frame, (FRAME_SIZE[1], FRAME_SIZE[0]), cv2.INTER_LINEAR)
 
-    fast = cv2.FastFeatureDetector_create(threshold=FAST_FEATURE_THRESHOLD, nonmaxSuppression=True,
+    fast = cv2.FastFeatureDetector_create(threshold=FAST_FEATURE_THRESHOLD, nonmaxSuppression=False,
                                           type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16)
     # as paper said, " we divide a single frame into 5×5 regular grids
-    # and for each grid we use an independent FAST feature detec-tor."
+    # and for each grid we use an independent FAST feature detector."
     grid_size = [int(FRAME_SIZE[0] / 5), int(FRAME_SIZE[1] / 5)]
     kp = []
     frame_kp = frame.copy()
+
     for i in range(5):
         for j in range(5):
-            grid = frame_kp[int(i * grid_size[0]):int((i + 1) * grid_size[0]),
-                   int(j * grid_size[1]):int((j + 1) * grid_size[1])]
-            grid_kp = fast.detect(grid, None)
+            mask = np.zeros(frame.shape, np.uint8)
+            mask[int(i * grid_size[0]):int((i + 1) * grid_size[0]),
+            int(j * grid_size[1]):int((j + 1) * grid_size[1])] = 1
 
-            cv2.drawKeypoints(grid, grid_kp, grid, color=(0, 255, 0))
+            grid_kp = fast.detect(frame, mask)
 
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-
-            for k in range(0, len(grid_kp)):
-                height = grid_kp[k].pt[0] + i * grid_size[0]
-                width = grid_kp[k].pt[1] + j * grid_size[1]
-                grid_kp[k].pt = (height, width)
-                kp.append(grid_kp[k])
+            cv2.drawKeypoints(frame_kp, grid_kp, frame_kp, color=(0, 255, 0))
+            kp += grid_kp
 
     cv2.imshow('frame', frame)
     cv2.imshow('frame_kp', frame_kp)
@@ -42,7 +38,7 @@ def feature_detector(path):
 
 
 def main():
-    frame_path = "./0001.jpg"
+    frame_path = "./building.jpg"
     feature_detector(frame_path)
 
 
