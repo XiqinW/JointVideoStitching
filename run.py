@@ -19,4 +19,4 @@ if __name__ == "__main__":
         (result, vis) = stitcher.stitch([imageA, imageB], showMatches=True)
         cv2.imwrite("./output/" + str(i) + ".jpg", result)
         imageA = result
-    print("all done.")
+    print("555.")
