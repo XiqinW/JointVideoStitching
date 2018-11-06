@@ -1,5 +1,5 @@
-﻿import numpy as np
-import cv2
+﻿import cv2
+import numpy as np
 
 
 class Stitcher:
@@ -9,8 +9,8 @@ class Stitcher:
         # 获取输入图片
         (imageB, imageA) = images
         # 检测A、B图片的SIFT关键特征点，并计算特征描述子
-        (kpsA, featuresA) = self.detectAndDescribe(imageA)
-        (kpsB, featuresB) = self.detectAndDescribe(imageB)
+        (kpsA, featuresA) = self.detectAndDescribe(imageA[int(imageA.shape[0] / 8):imageA.shape[0], :])
+        (kpsB, featuresB) = self.detectAndDescribe(imageB[int(imageB.shape[0] / 8):imageB.shape[0], :])
 
         # 匹配两张图片的所有特征点，返回匹配结果
         M = self.matchKeypoints(kpsA, kpsB, featuresA, featuresB, ratio, reprojThresh)
@@ -20,12 +20,17 @@ class Stitcher:
             return None
 
         # 否则，提取匹配结果
-        # H是3x3视角变换矩阵
+        # H是3x3视角变换矩阵      
         (matches, H, status) = M
         # 将图片A进行视角变换，result是变换后图片
-        result = cv2.warpPerspective(imageA, H, (imageA.shape[1] + imageB.shape[1], imageA.shape[0] + imageB.shape[0]))
+        result = cv2.warpPerspective(imageA, H, (imageA.shape[1] + int(imageB.shape[1]), imageB.shape[0]))
         # result = cv2.warpPerspective(imageA, H, (imageA.shape[1] + imageB.shape[1], imageA.shape[0]))
         # 将图片B传入result图片最左端
+        for k in range(imageB.shape[1]):
+            if imageB[int(imageB.shape[0] / 2), k][0] == 0:
+                imageB = imageB[:, 0:k - 20]
+                break
+
         result[0:imageB.shape[0], 0:imageB.shape[1]] = imageB
 
         # 检测是否需要显示图片匹配
@@ -101,12 +106,3 @@ class Stitcher:
 
         # 返回可视化结果
         return vis
-
-
-if __name__ == "__main__":
-    stitcher = Stitcher()
-    images = []
-    for i in range(1, 3):
-        f = cv2.open("./000" + str(i) + ".jpg")
-        images.append(f)
-    stitcher.detectAndDescribe(images)

@@ -8,7 +8,7 @@ Bing Zeng and Moncef Gabbouj]`
     pip install -r requirements.txt
     ```
 
-- opencv4 
+- opencv4  [@Wei Wen](http://www.pittnuts.com/2015/12/build-opencv-in-ubutune/)
 
     which includes non-free modules such as xfeatures2d 
     
@@ -33,5 +33,5 @@ Bing Zeng and Moncef Gabbouj]`
     ```
     
 ```
-python run .py
+python run.py
 ```
