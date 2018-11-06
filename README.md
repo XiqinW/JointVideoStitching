@@ -10,7 +10,7 @@ Bing Zeng and Moncef Gabbouj]`
 
 - opencv4 
 
-    which includes non free modules such as xfeatures2d 
+    which includes non-free modules such as xfeatures2d 
     
     ```
     mkdir ./resources/libs/opencv_build && cd ./resources/libs/opencv_build
