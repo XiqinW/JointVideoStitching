@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import math
+import resources.libs.Deng.doubly_linked_list as doubly_linked_list
 
 FRAME_SIZE = (720, 1280, 3)
 GRID_ = (5, 5)
@@ -7,6 +9,7 @@ MIN_FEATURE_NUM = 800
 
 
 class FeatureDetector:
+    FAST_FEATURE_DETECTOR_TYPE = 0
 
     def __init__(self):
         pass
@@ -15,8 +18,96 @@ class FeatureDetector:
         return cv2.FastFeatureDetector_create(threshold, nonmaxSuppression=on_,
                                               type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16)
 
-    def my_fast(self, threshold=5):
-        pass
+    def my_fast(self, img, threshold=5, circumference=16, nums=9, non_max_suppression=True, n_m_s_window=5):
+        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        # cv2.imshow('img_gray', img_gray)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+
+        # this part could be accelerated with Graphic card
+        key_points = []
+        for x in range(3, img.shape[0] - 3):
+            for y in range(3, img.shape[1] - 3):
+
+                diff_list = []
+                center_value = img_gray[x][y]
+
+                diff_list.append(abs(int(center_value) - int(img_gray[x - 3][y])))
+                diff_list.append(abs(int(center_value) - int(img_gray[x][y + 3])))
+                diff_list.append(abs(int(center_value) - int(img_gray[x + 3][y])))
+                diff_list.append(abs(int(center_value) - int(img_gray[x][y - 3])))
+
+                nums_window_exceed_threshold = 0
+
+                for i in range(4):
+                    if diff_list[i] > threshold:
+                        nums_window_exceed_threshold += 1
+
+                if nums_window_exceed_threshold > 2:
+                    linked_list = doubly_linked_list.DoublyLinkedList()
+
+                    for i in range(4):
+                        linked_list.append(diff_list[i])
+
+                    diff_list.append(abs(int(center_value) - int(img_gray[x - 1][y + 3])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x - 2][y + 2])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x - 3][y + 1])))
+
+                    diff_list.append(abs(int(center_value) - int(img_gray[x + 3][y + 1])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x + 2][y + 2])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x + 1][y + 3])))
+
+                    diff_list.append(abs(int(center_value) - int(img_gray[x + 1][y - 3])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x + 2][y - 2])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x + 3][y - 1])))
+
+                    diff_list.append(abs(int(center_value) - int(img_gray[x - 1][y - 3])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x - 2][y - 2])))
+                    diff_list.append(abs(int(center_value) - int(img_gray[x - 3][y - 1])))
+
+                    for i in range(4):
+                        for j in range(3):
+                            linked_list.insert(i * 4, diff_list[4 + i * 3 + j])
+                    counter = 0
+                    score = 0
+                    node = linked_list.head
+                    nums_window_exceed_threshold = 0
+                    while counter < circumference + nums:
+                        if node.data > threshold:
+                            nums_window_exceed_threshold += 1
+                        else:
+                            nums_window_exceed_threshold = 0
+                        node = node.next_
+                        counter += 1
+
+                    if nums_window_exceed_threshold > nums - 1:
+                        for i in range(16):
+                            node = linked_list.get_item(i)
+                            score += node.data
+                        key_points.append((x, y, score))
+
+                    linked_list.clear()
+
+        if non_max_suppression:
+            key_points_nums = len(key_points)
+            if key_points_nums > 1:
+                while True:
+                    counter = 0
+                    for i in range(key_points_nums):
+                        point = key_points.pop()
+                        for remain_point in key_points:
+                            if abs(remain_point[0] - point[0]) < n_m_s_window and abs(
+                                    remain_point[1] - point[1]) < n_m_s_window and remain_point[2] > point[2]:
+                                counter = 0
+                                break
+                            counter += 1
+                        if counter:
+                            key_points = [point] + key_points
+                    if key_points_nums == len(key_points):
+                        break
+                    key_points_nums = len(key_points)
+
+        return key_points
 
 
 def detect_features(path):
