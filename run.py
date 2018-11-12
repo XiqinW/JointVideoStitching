@@ -54,7 +54,7 @@ def wang():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger = logging.getLogger(__name__)
 
-    img_path = gb.glob("./resources/images/*.jpg")
+    img_path = gb.glob("./resources/images/ice_skating/*.jpg")
 
     num = len(img_path)
     st = int(num / 2) + 1
@@ -73,34 +73,33 @@ def wang():
 
 
 def deng():
-    im = cv2.imread("./resources/images/0001.jpg")
+    im = cv2.imread("./resources/images/building/building0001.jpg")
+    work.detect_features("./resources/images/building/building0001.jpg")
 
-    worker = work.FeatureDetector()
-    t = time.time()
-    features = worker.my_fast(im, threshold=10)
-    print(len(features))
-    print(time.time() - t)
-    for point in features:
-        result_im = cv2.circle(im, (point[1], point[0]), 3, (0, 255, 0), -1)
-
-    cv2.imshow('result_im_0001', result_im)
-
-    im = cv2.imread("./resources/images/0002.jpg")
-
-    worker = work.FeatureDetector()
-    t = time.time()
-    features = worker.my_fast(im, threshold=10)
-    print(len(features))
-    print(time.time() - t)
-    for point in features:
-        result_im = cv2.circle(im, (point[1], point[0]), 3, (0, 255, 0), -1)
-
-    cv2.imshow('result_im_0002', result_im)
-
-
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # worker = work.FeatureDetector()
+    # t = time.time()
+    # features = worker.my_fast(im, threshold=50)
+    # print(len(features))
+    # print(time.time() - t)
+    # for point in features:
+    #     result_im = cv2.circle(im, (point[1], point[0]), 3, (0, 255, 0), -1)
+    #
+    # cv2.imshow('result_im_0001', result_im)
+    #
+    # im = cv2.imread("./resources/images/building/building0002.jpg")
+    #
+    # worker = work.FeatureDetector()
+    # t = time.time()
+    # features = worker.my_fast(im, threshold=50)
+    # print(len(features))
+    # print(time.time() - t)
+    # for point in features:
+    #     result_im = cv2.circle(im, (point[1], point[0]), 3, (0, 255, 0), -1)
+    #
+    # cv2.imshow('result_im_0002', result_im)
+    #
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
