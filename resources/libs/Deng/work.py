@@ -34,10 +34,10 @@ class MyFast:
         # this part could be accelerated with Graphic card
 
         if len(mask) == 0:
-            mask = [(0, 0), img_gray.shape]
+            mask = [[0, 0], [img_gray.shape[0], img_gray.shape[1]]]
         key_points = []
-        for x in range(mask[0][0] + 3, mask[1][0] - 3):
-            for y in range(mask[0][1] + 3, mask[1][1] - 3):
+        for x in range(mask[0][0], mask[1][0]):
+            for y in range(mask[0][1], mask[1][1]):
 
                 diff_list = []
                 center_value = img_gray[x][y]
@@ -99,6 +99,7 @@ class MyFast:
                     linked_list.clear()
 
         if self.non_max_suppression:
+            print("suppression!")
             key_points_nums = len(key_points)
             if key_points_nums > 1:
                 while True:
@@ -123,7 +124,6 @@ class MyFast:
             key_point.score = point[2]
             result.append(key_point)
         return result
-        # 伪造了一个keypoint类 还没试
 
 
 class FeatureDetector:
@@ -137,7 +137,8 @@ class FeatureDetector:
                                               type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16)
 
     def my_fast(self, threshold=5, non_max_suppression=True):
-        return MyFast(threshold, non_max_suppression)
+        return MyFast(threshold=threshold, circumference=16, nums=9, non_max_suppression=non_max_suppression,
+                      n_m_s_window=5)
 
 
 def detect_features(path):
@@ -156,12 +157,22 @@ def detect_features(path):
 
     for i in range(GRID_[0]):
         for j in range(GRID_[1]):
-            mask = np.zeros((frame.shape[0], frame.shape[1]), np.uint8)
+            # mask = np.zeros((frame.shape[0], frame.shape[1]), np.uint8)
             # fast = feature_detector.fast()
-            fast = feature_detector.my_fast(threshold=10, non_max_suppression=True)
+            fast = feature_detector.my_fast(threshold=15, non_max_suppression=True)
 
-            grid_mask = [(int(i * grid_size[0]), int(j * grid_size[1])),
-                         (int((i + 1) * grid_size[0]), int((j + 1) * grid_size[1]))]
+            grid_mask = [[int(i * grid_size[0]), int(j * grid_size[1])],
+                         [int((i + 1) * grid_size[0]), int((j + 1) * grid_size[1])]]
+
+            if grid_mask[0][0] == 0:
+                grid_mask[0][0] = 3
+            if grid_mask[0][1] == 0:
+                grid_mask[0][1] = 3
+
+            if grid_mask[1][0] == FRAME_SIZE[0]:
+                grid_mask[1][0] = FRAME_SIZE[0] - 3
+            if grid_mask[1][1] == FRAME_SIZE[1]:
+                grid_mask[1][1] = FRAME_SIZE[1] - 3
 
             grid_kp = fast.detect(frame, grid_mask)
 
@@ -169,7 +180,7 @@ def detect_features(path):
 
             kp += grid_kp
             print("grid " + str((i, j)) + " got " + str(len(grid_kp)) + " features in total")
-
+    print(len(kp))
     for key_point in kp:
         frame_kp = cv2.circle(frame, (key_point.pt[1], key_point.pt[0]), 3, (0, 255, 0), 1)
     cv2.imshow('frame_kp', frame_kp)
