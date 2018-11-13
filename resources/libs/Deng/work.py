@@ -6,18 +6,7 @@ import resources.libs.Deng.doubly_linked_list as doubly_linked_list
 FRAME_SIZE = (720, 1280, 3)
 GRID_ = (5, 5)
 MIN_FEATURE_NUM = 800
-FAST_THRESHOLD = 4.5
-
-
-class KeyPoint:
-    def __init__(self, angle=-1.0, class_id=-1, octave=0, pt=(0.0, 0.0), response=0.0, size=0.0, score=-1):
-        self.angle = angle
-        self.class_id = class_id
-        self.octave = octave
-        self.pt = pt
-        self.response = response
-        self.size = size
-        self.score = score
+FAST_THRESHOLD = 10
 
 
 class MyFast:
@@ -131,7 +120,7 @@ class FeatureDetector:
         pass
 
     def fast(self, threshold=5, non_max_suppression=True):
-        return cv2.FastFeatureDetector_create(threshold, non_max_suppression,
+        return cv2.FastFeatureDetector_create(threshold=threshold, nonmaxSuppression=non_max_suppression,
                                               type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16)
 
     def my_fast(self, threshold=5, non_max_suppression=True):
@@ -166,8 +155,9 @@ def detect_features(path):
                 print(
                     (threshold[i * GRID_[1] + j], score[i * GRID_[1] + j], u_score, score[i * GRID_[1] + j] / u_score),
                     end=" | ")
-                threshold[i * GRID_[1] + j] = 1 + math.pow(score[i * GRID_[1] + j] / u_score, 1 / 2) * threshold[
-                    i * GRID_[1] + j]
+                threshold[i * GRID_[1] + j] = math.pow((score[i * GRID_[1] + j] + 1) / (u_score + 1), 1 / 2) * \
+                                              threshold[
+                                                  i * GRID_[1] + j]
 
                 # threshold[i * GRID_[1] + j] = 1 + score[i * GRID_[1] + j] / u_score * threshold[i * 5 + j]
 
@@ -203,6 +193,64 @@ def detect_features(path):
     for grid_key_point in kp:
         for i in range(len(grid_key_point[0])):
             frame_kp = cv2.circle(frame, (grid_key_point[1][i], grid_key_point[0][i]), 3, (0, 255, 0), 1)
+    cv2.imshow('frame_kp', frame_kp)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def detect_features_with_cv(path):
+    feature_detector = FeatureDetector()
+    original_frame = cv2.imread(path)
+    frame = original_frame.copy()
+
+    if frame.shape != FRAME_SIZE:
+        frame = cv2.resize(frame, (FRAME_SIZE[1], FRAME_SIZE[0]), cv2.INTER_LINEAR)
+
+    # as paper said, " we divide a single frame into 5×5 regular grids
+    # and for each grid we use an independent FAST feature detector."
+    grid_size = [int(FRAME_SIZE[0] / GRID_[0]), int(FRAME_SIZE[1] / GRID_[1])]
+    kp = []
+
+    frame_kp = frame.copy()
+    u_score = FAST_THRESHOLD * 2
+    score = [u_score for i in range(GRID_[0] * GRID_[1])]
+    threshold = score.copy()
+    for k in range(2):
+        kp = []
+        sum_score = 0
+
+        for i in range(GRID_[0]):
+            for j in range(GRID_[1]):
+                mask = np.zeros(frame.shape, np.uint8)
+
+                mask[int(i * grid_size[0]):int((i + 1) * grid_size[0]),
+                int(j * grid_size[1]):int((j + 1) * grid_size[1])] = 1
+
+                print(
+                    (threshold[i * GRID_[1] + j], score[i * GRID_[1] + j], u_score, score[i * GRID_[1] + j] / u_score),
+                    end=" | ")
+
+                threshold[i * GRID_[1] + j] = math.pow((score[i * GRID_[1] + j] + 1) / (u_score + 1), 1 / 2) * \
+                                              threshold[
+                                                  i * GRID_[1] + j]
+
+                # threshold[i * GRID_[1] + j] = 1 + score[i * GRID_[1] + j] / u_score * threshold[i * 5 + j]
+
+                print(threshold[i * GRID_[1] + j], end=" | ")
+
+                fast = feature_detector.fast(threshold=int(threshold[i * 5 + j]), non_max_suppression=True)
+
+                grid_kp = fast.detect(frame, mask)
+
+                grid_score = 0
+                for point in grid_kp:
+                    grid_score += point.response * threshold[i * GRID_[1] + j]
+                sum_score += grid_score
+                score[i * GRID_[1] + j] = grid_score
+                print(str(k) + " grid " + str((i, j)) + " got " + str(len(grid_kp)) + " features")
+                kp += grid_kp
+        u_score = sum_score / (GRID_[0] * GRID_[1])
+    cv2.drawKeypoints(frame_kp, kp, frame_kp, color=(0, 255, 0))
     cv2.imshow('frame_kp', frame_kp)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
