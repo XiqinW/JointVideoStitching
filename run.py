@@ -73,8 +73,9 @@ def wang():
 
 
 def deng():
-    im = cv2.imread("./resources/images/building/building0001.jpg")
-    work.detect_features("./resources/images/building/building0001.jpg")
+    # im = cv2.imread("./resources/images/building/building0001.jpg")
+    work.detect_features("./resources/images/ice_skating/0001.jpg")
+    # work.detect_features("./resources/images/building/building0001.jpg")
 
     # worker = work.FeatureDetector()
     # t = time.time()
