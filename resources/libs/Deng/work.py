@@ -1,12 +1,20 @@
 import cv2
 import numpy as np
 import math
+import time
 import resources.libs.Deng.doubly_linked_list as doubly_linked_list
 
 FRAME_SIZE = (720, 1280, 3)
 GRID_ = (5, 5)
 MIN_FEATURE_NUM = 800
-FAST_THRESHOLD = 10
+FAST_THRESHOLD = 40
+
+# G2 in paper BRIEF: Binary Robust Independent Elementary Features⋆ Michael Calonder
+mean = [0, 0]
+cov = [[33 ** 2 / 25, 0], [0, 33 ** 2 / 25]]  # diagonal covariance
+BRIEF_x, BRIEF_y = np.random.multivariate_normal(mean, cov, 1024).T
+BRIEF_x = BRIEF_x.astype(np.int)
+BRIEF_y = BRIEF_y.astype(np.int)
 
 
 class MyFast:
@@ -19,6 +27,7 @@ class MyFast:
         pass
 
     def detect(self, img, mask=[]):
+
         img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
         # this part could be accelerated with Graphic card
@@ -84,7 +93,7 @@ class MyFast:
                         key_points.append([x, y, score])
 
                     linked_list.clear()
-
+        # key_points = [[1, 1, 1], [2, 3, 4], [9, 9, 100], [21, 13, 2], [3, 2, 77], [8, 8, 12], [7, 7, 56]]
         if self.non_max_suppression:
             key_points_nums = len(key_points)
             if key_points_nums > 1:
@@ -103,14 +112,10 @@ class MyFast:
                     if key_points_nums == len(key_points):
                         break
                     key_points_nums = len(key_points)
+        # print(key_points)
+        # exit()
 
-        result = [[], [], []]
-
-        for i in range(len(key_points)):
-            result[0].append(key_points[i][0])
-            result[1].append(key_points[i][1])
-            result[2].append(key_points[i][2])
-        return result
+        return key_points
 
 
 class FeatureDetector:
@@ -129,6 +134,7 @@ class FeatureDetector:
 
 
 def detect_features(path):
+    t = time.time()
     feature_detector = FeatureDetector()
     original_frame = cv2.imread(path)
     frame = original_frame.copy()
@@ -146,7 +152,7 @@ def detect_features(path):
     threshold = score.copy()
 
     for k in range(2):
-        kp = []
+        kp = np.asarray([np.asarray([None, None, None])])
         sum_score = 0
         for i in range(GRID_[0]):
             for j in range(GRID_[1]):
@@ -182,20 +188,93 @@ def detect_features(path):
                 grid_kp = fast.detect(frame, grid_mask)
 
                 # cv2.drawKeypoints(frame_kp, grid_kp, frame_kp, color=(0, 255, 0))
-                # grid_kp = np.asarray(grid_kp)
-                grid_score = sum(grid_kp[2])
-                sum_score += grid_score
-                score[i * GRID_[1] + j] = grid_score
-                kp.append(grid_kp)
-                print(str(k) + " grid " + str((i, j)) + " got " + str(len(grid_kp[0])) + " features in total")
-        u_score = sum_score / (GRID_[0] * GRID_[1])
-    print(len(kp[0][0]))
-    for grid_key_point in kp:
-        for i in range(len(grid_key_point[0])):
-            frame_kp = cv2.circle(frame, (grid_key_point[1][i], grid_key_point[0][i]), 3, (0, 255, 0), 1)
-    cv2.imshow('frame_kp', frame_kp)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+                if len(grid_kp):
+                    grid_kp = np.asarray(grid_kp)
+                    kp = np.vstack((kp, grid_kp))
+
+                    scores = grid_kp[:, 2]
+                    grid_score = sum(scores)
+                    sum_score += grid_score
+                    score[i * GRID_[1] + j] = grid_score
+                print(str(k) + " grid " + str((i, j)) + " got " + str(len(grid_kp)) + " features in total")
+
+        if len(kp) > 800:
+            break
+        else:
+            break
+            print("run: grid-based feature detection")
+            u_score = sum_score / (GRID_[0] * GRID_[1])
+    kp = np.delete(kp, 0, axis=0)
+
+    frame_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    bitstring_list = []
+    for point in kp:
+        bitstring = ''
+        if point[0] < 16 or point[1] < 16 or point[0] > FRAME_SIZE[0] - 15 or point[1] > FRAME_SIZE[1] - 15:
+            pass
+        else:
+
+            local_Gau_blur = cv2.GaussianBlur(
+                frame_gray[(point[0] - 16):(point[0] + 16), (point[1] - 16):(point[1] + 16)], (9, 9), 2)
+            for i in range(512):
+                if local_Gau_blur[BRIEF_x[2 * i], BRIEF_y[2 * i]] < local_Gau_blur[
+                    BRIEF_x[2 * i + 1], BRIEF_y[2 * i + 1]]:
+                    bitstring += '1'
+                else:
+                    bitstring += '0'
+
+        bitstring_list.append(bitstring)
+        pass
+    bitstring_list = np.asarray(bitstring_list)
+    bitstring_list = np.transpose(bitstring_list)
+    kp = np.column_stack((kp, bitstring_list))
+    # for i in range(len(kp[0])):
+    #     # frame_kp_gray = cv2.circle(frame, (grid_key_point[1][i], grid_key_point[0][i]), 3, (0, 255, 0), 1)
+    #     frame_kp = cv2.circle(frame, (kp[1][i], kp[0][i]), 3, (0, 255, 0), 1)
+    # print(time.time() - t)
+    # cv2.imshow('frame_kp', frame_kp)
+
+    return kp
+
+
+def hamming(s1, s2):
+    """Calculate the Hamming distance between two bit strings"""
+    if len(s1) == len(s2):
+        return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+    else:
+        return 512
+
+
+def gaussian_kernel_2d_opencv(kernel_size=3, sigma=0):
+    kx = cv2.getGaussianKernel(kernel_size, sigma)
+    ky = cv2.getGaussianKernel(kernel_size, sigma)
+    return np.multiply(kx, np.transpose(ky))
+
+
+
+
+
+def feature_match(kp_a, kp_b):
+    index_list = []
+    s = 0
+    for point_a in kp_a:
+        distances = []
+        for point_b in kp_b:
+            # if len(point_a[3]) and len(point_b[3]):
+            hamming_distance = hamming(point_a[3], point_b[3])
+            # else:
+            #     hamming_distance = 512
+            distances.append(hamming_distance)
+
+        print("%d / %d" % (s, len(kp_a)))
+        s += 1
+        index_matched = distances.index(min(distances))
+        index_list.append(index_matched)
+    return index_list
+
+
+def detect_in_grids():
+    pass
 
 
 def detect_features_with_cv(path):

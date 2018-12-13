@@ -1,6 +1,7 @@
 import glob as gb
 import cv2
 import logging
+import numpy as np
 import time
 import resources.libs.Wang.Stitcher as Sticher
 import resources.libs.Deng.work as work
@@ -73,9 +74,29 @@ def wang():
 
 
 def deng():
-    # im = cv2.imread("./resources/images/building/building0001.jpg")
-    work.detect_features("./resources/images/ice_skating/0001.jpg")
-    # work.detect_features("./resources/images/building/building0001.jpg")
+    im_a = cv2.imread("./resources/images/building/building0001.jpg")
+    im_b = cv2.imread("./resources/images/building/building0002.jpg")
+
+    im_a = cv2.resize(im_a, (1280, 720), cv2.INTER_LINEAR)
+    im_b = cv2.resize(im_b, (1280, 720), cv2.INTER_LINEAR)
+    # work.detect_features("./resources/images/ice_skating/0001.jpg")
+    kp = []
+    kp.append(work.detect_features("./resources/images/building/building0001.jpg"))
+    kp.append(work.detect_features("./resources/images/building/building0002.jpg"))
+    index_list = work.feature_match(kp[0], kp[1])
+
+    im = np.hstack((im_a, im_b))
+
+    for i in range(len(kp[0])):
+        matched = cv2.line(im, (kp[0][i][1], kp[0][i][0]),
+                           (1280 + kp[1][index_list[i]][1], kp[1][index_list[i]][0]),
+                           (0, 255, 0), 1)
+        matched = cv2.circle(matched, (kp[0][i][1], kp[0][i][0]), 3, (255, 0, 0), 1)
+        matched = cv2.circle(matched, (1280 + kp[1][index_list[i]][1], kp[1][index_list[i]][0]), 3, (255, 0, 0), 1)
+
+    cv2.imshow('local_Gau_blur', matched)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
