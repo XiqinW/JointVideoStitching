@@ -74,6 +74,7 @@ def wang():
 
 
 def deng():
+    t = time.time()
     im_a = cv2.imread("./resources/images/building/building0001.jpg")
     im_b = cv2.imread("./resources/images/building/building0002.jpg")
 
@@ -83,7 +84,15 @@ def deng():
     kp = []
     kp.append(work.detect_features("./resources/images/building/building0001.jpg"))
     kp.append(work.detect_features("./resources/images/building/building0002.jpg"))
-    index_list = work.feature_match(kp[0], kp[1])
+
+    for i in range(len(kp)):
+        index_remove = []
+        for j in range(len(kp[i])):
+            if kp[i][j][3] == '':
+                index_remove.append(j)
+
+        kp[i] = np.delete(kp[i], index_remove, axis=0)
+    index_list, kp[0] = work.feature_match(kp[0], kp[1])
 
     im = np.hstack((im_a, im_b))
 
@@ -93,7 +102,8 @@ def deng():
                            (0, 255, 0), 1)
         matched = cv2.circle(matched, (kp[0][i][1], kp[0][i][0]), 3, (255, 0, 0), 1)
         matched = cv2.circle(matched, (1280 + kp[1][index_list[i]][1], kp[1][index_list[i]][0]), 3, (255, 0, 0), 1)
-
+    print(time.time() - t)
+    cv2.imwrite("./result.jpg", matched)
     cv2.imshow('local_Gau_blur', matched)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

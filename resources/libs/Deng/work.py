@@ -7,7 +7,7 @@ import resources.libs.Deng.doubly_linked_list as doubly_linked_list
 FRAME_SIZE = (720, 1280, 3)
 GRID_ = (5, 5)
 MIN_FEATURE_NUM = 800
-FAST_THRESHOLD = 40
+FAST_THRESHOLD = 20
 
 # G2 in paper BRIEF: Binary Robust Independent Elementary Features⋆ Michael Calonder
 mean = [0, 0]
@@ -151,7 +151,7 @@ def detect_features(path):
     score = [u_score for i in range(GRID_[0] * GRID_[1])]
     threshold = score.copy()
 
-    for k in range(2):
+    for k in range(10):
         kp = np.asarray([np.asarray([None, None, None])])
         sum_score = 0
         for i in range(GRID_[0]):
@@ -240,9 +240,20 @@ def detect_features(path):
 def hamming(s1, s2):
     """Calculate the Hamming distance between two bit strings"""
     if len(s1) == len(s2):
-        return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+        res = sum(c1 != c2 for c1, c2 in zip(s1, s2))
+        return res
     else:
         return 512
+
+
+def hamming_2(s1, s2):
+    """Calculate the Hamming distance between two bit strings"""
+    hamming_dec = s1 ^ s2
+    count = 0
+    while hamming_dec:
+        hamming_dec &= hamming_dec - 1
+        count += 1
+    return count
 
 
 def gaussian_kernel_2d_opencv(kernel_size=3, sigma=0):
@@ -251,26 +262,50 @@ def gaussian_kernel_2d_opencv(kernel_size=3, sigma=0):
     return np.multiply(kx, np.transpose(ky))
 
 
-
-
-
 def feature_match(kp_a, kp_b):
-    index_list = []
+    index_list = [[], []]
     s = 0
     for point_a in kp_a:
         distances = []
         for point_b in kp_b:
-            # if len(point_a[3]) and len(point_b[3]):
-            hamming_distance = hamming(point_a[3], point_b[3])
-            # else:
-            #     hamming_distance = 512
+
+            # this threshold depends on 1. the distance between object and camera
+            # 2. speed of camera's movement 3. speed of object's movement
+            threshold = 33
+            if abs((point_a[0] - point_b[0])) < threshold and abs(point_a[1] - point_b[1]) < threshold:
+                hamming_distance = hamming_2(int(point_a[3], 2), int(point_b[3], 2))
+            else:
+                hamming_distance = 512
             distances.append(hamming_distance)
 
         print("%d / %d" % (s, len(kp_a)))
         s += 1
-        index_matched = distances.index(min(distances))
-        index_list.append(index_matched)
-    return index_list
+        min_distance = min(distances)
+        distances = np.asarray(distances)
+        index_matched_list = np.argwhere(distances == min_distance)
+        min_Euclidean = 2156800
+        index_matched = index_matched_list[0][0]
+        for i in range(len(index_matched_list)):
+            Euclidean_distance = (point_a[0] - kp_b[index_matched_list[i][0]][0]) ** 2 + (
+                    point_a[1] - kp_b[index_matched_list[i][0]][1]) ** 2
+            if Euclidean_distance < min_Euclidean:
+                min_Euclidean = Euclidean_distance
+                index_matched = index_matched_list[i][0]
+
+        index_list[0].append(index_matched)
+        # Hamming distance list
+        index_list[1].append(min_Euclidean)
+
+        # print(kp_b.shape)
+
+    index_remove = []
+    for i in range(len(index_list[0])):
+        if index_list[1][i] > 21568:
+            index_remove.append(i)
+    index_list = np.asarray(index_list[0])
+    index_list = np.delete(index_list, index_remove, axis=0)
+    kp_a = np.delete(kp_a, index_remove, axis=0)
+    return index_list, kp_a
 
 
 def detect_in_grids():
