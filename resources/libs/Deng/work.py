@@ -24,7 +24,6 @@ class MyFast:
         self.nums = nums
         self.non_max_suppression = non_max_suppression
         self.n_m_s_window = n_m_s_window
-        pass
 
     def detect(self, img, mask=[]):
 
@@ -35,6 +34,7 @@ class MyFast:
         if len(mask) == 0:
             mask = [[0, 0], [img_gray.shape[0], img_gray.shape[1]]]
         key_points = []
+
         for x in range(mask[0][0], mask[1][0]):
             for y in range(mask[0][1], mask[1][1]):
 
@@ -50,72 +50,70 @@ class MyFast:
                         (diff_list[0] > self.threshold) + (diff_list[1] > self.threshold) + (
                         diff_list[2] > self.threshold) +
                         (diff_list[3] > self.threshold)) > 2:
-                    linked_list = doubly_linked_list.DoublyLinkedList()
-
-                    for i in range(4):
-                        linked_list.append(diff_list[i])
+                    diff_list = []
 
                     diff_list.append(abs(center_value - int(img_gray[x - 1][y + 3])))
                     diff_list.append(abs(center_value - int(img_gray[x - 2][y + 2])))
                     diff_list.append(abs(center_value - int(img_gray[x - 3][y + 1])))
+                    diff_list.append(abs(center_value - int(img_gray[x - 3][y])))
 
                     diff_list.append(abs(center_value - int(img_gray[x + 3][y + 1])))
                     diff_list.append(abs(center_value - int(img_gray[x + 2][y + 2])))
                     diff_list.append(abs(center_value - int(img_gray[x + 1][y + 3])))
+                    diff_list.append(abs(center_value - int(img_gray[x][y + 3])))
 
                     diff_list.append(abs(center_value - int(img_gray[x + 1][y - 3])))
                     diff_list.append(abs(center_value - int(img_gray[x + 2][y - 2])))
                     diff_list.append(abs(center_value - int(img_gray[x + 3][y - 1])))
+                    diff_list.append(abs(center_value - int(img_gray[x + 3][y])))
 
                     diff_list.append(abs(center_value - int(img_gray[x - 1][y - 3])))
                     diff_list.append(abs(center_value - int(img_gray[x - 2][y - 2])))
                     diff_list.append(abs(center_value - int(img_gray[x - 3][y - 1])))
+                    diff_list.append(abs(center_value - int(img_gray[x][y - 3])))
 
-                    for i in range(4):
-                        for j in range(3):
-                            linked_list.insert(i * 4, diff_list[4 + i * 3 + j])
-                    counter = 0
-                    score = 0
-                    node = linked_list.head
+                    diff_list.append(abs(center_value - int(img_gray[x - 1][y + 3])))
+                    diff_list.append(abs(center_value - int(img_gray[x - 2][y + 2])))
+                    diff_list.append(abs(center_value - int(img_gray[x - 3][y + 1])))
+                    diff_list.append(abs(center_value - int(img_gray[x - 3][y])))
+
+                    diff_list.append(abs(center_value - int(img_gray[x + 3][y + 1])))
+                    diff_list.append(abs(center_value - int(img_gray[x + 2][y + 2])))
+                    diff_list.append(abs(center_value - int(img_gray[x + 1][y + 3])))
+                    diff_list.append(abs(center_value - int(img_gray[x][y + 3])))
+
                     nums_window_exceed_threshold = 0
-                    while counter < self.circumference + self.nums and nums_window_exceed_threshold < self.nums:
-                        if node.data > self.threshold:
+                    for i in diff_list:
+                        if i > self.threshold:
                             nums_window_exceed_threshold += 1
+                            if nums_window_exceed_threshold > 8:
+                                score = sum(diff_list)
+                                key_points.append([x, y, int(score)])
+                                break
                         else:
                             nums_window_exceed_threshold = 0
-                        node = node.next_
-                        counter += 1
 
-                    if nums_window_exceed_threshold >= self.nums:
-                        for i in range(16):
-                            node = linked_list.get_item(i)
-                            score += node.data
-                        key_points.append([x, y, score])
+        key_points_nums = len(key_points)
+        res = []
+        if self.non_max_suppression and key_points_nums > 1:
+            flag = [1 for i in range(key_points_nums)]
 
-                    linked_list.clear()
-        # key_points = [[1, 1, 1], [2, 3, 4], [9, 9, 100], [21, 13, 2], [3, 2, 77], [8, 8, 12], [7, 7, 56]]
-        if self.non_max_suppression:
-            key_points_nums = len(key_points)
-            if key_points_nums > 1:
-                while True:
-                    counter = 0
-                    for i in range(key_points_nums):
-                        point = key_points.pop()
-                        for remain_point in key_points:
-                            if abs(remain_point[0] - point[0]) < self.n_m_s_window and abs(
-                                    remain_point[1] - point[1]) < self.n_m_s_window and remain_point[2] > point[2]:
-                                counter = 0
-                                break
-                            counter += 1
-                        if counter:
-                            key_points = [point] + key_points
-                    if key_points_nums == len(key_points):
-                        break
-                    key_points_nums = len(key_points)
-        # print(key_points)
-        # exit()
+            for i in range(key_points_nums):
+                for j in range(1, key_points_nums - i):
+                    if flag[i]:
+                        if key_points[i + j][0] - key_points[i][0] < self.n_m_s_window and \
+                                key_points[i + j][1] - key_points[i][1] < self.n_m_s_window:
+                            if key_points[i][2] > key_points[i + j][2]:
+                                flag[i + j] = 0
+                            else:
+                                flag[i] = 0
+                        else:
+                            break
+            for i in range(key_points_nums):
+                if flag[i]:
+                    res.append(key_points[i])
 
-        return key_points
+        return res
 
 
 class FeatureDetector:
@@ -278,7 +276,7 @@ def feature_match(kp_a, kp_b):
                 hamming_distance = 512
             distances.append(hamming_distance)
 
-        print("%d / %d" % (s, len(kp_a)))
+        # print("%d / %d" % (s, len(kp_a)))
         s += 1
         min_distance = min(distances)
         distances = np.asarray(distances)
@@ -295,16 +293,50 @@ def feature_match(kp_a, kp_b):
         index_list[0].append(index_matched)
         # Hamming distance list
         index_list[1].append(min_Euclidean)
+    index_list = np.asarray(index_list)
+    idx = np.argsort(index_list[0])
+    index_list[0] = index_list[0][idx]
+    index_list[1] = index_list[1][idx]
+    kp_a = kp_a[idx]
+    t = time.time()
+    same_index_list = []
+    k = 0
+    index_list_len = len(index_list[0])
+    while k < index_list_len:
 
-        # print(kp_b.shape)
+        j = 0
+        window = [k - 1]
+        while True and k + j < index_list_len:
+
+            if index_list[0][k - 1 + j] == index_list[0][k + j]:
+                window.append(k + j)
+
+            else:
+                break
+            j += 1
+        k += j + 1
+        same_index_list.append(window)
+    index_remove = []
+    for same_index in same_index_list:
+        if len(same_index) > 1:
+            distance_list = index_list[1][same_index]
+            # del same_index[distance_list.index(min(distance_list))]
+            del same_index[np.argwhere(distance_list == distance_list.min())[0][0]]
+            index_remove += same_index
+        pass
+
+    distance_list = np.delete(index_list[1], index_remove, axis=0)
+    index_list = np.delete(index_list[0], index_remove, axis=0)
+    kp_a = np.delete(kp_a, index_remove, axis=0)
 
     index_remove = []
-    for i in range(len(index_list[0])):
-        if index_list[1][i] > 21568:
+    for i in range(len(distance_list)):
+        if distance_list[i] > 21568:
             index_remove.append(i)
-    index_list = np.asarray(index_list[0])
+
     index_list = np.delete(index_list, index_remove, axis=0)
     kp_a = np.delete(kp_a, index_remove, axis=0)
+    print(time.time() - t)
     return index_list, kp_a
 
 

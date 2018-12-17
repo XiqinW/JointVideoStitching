@@ -77,6 +77,8 @@ def deng():
     t = time.time()
     im_a = cv2.imread("./resources/images/building/building0001.jpg")
     im_b = cv2.imread("./resources/images/building/building0002.jpg")
+    # im_a = cv2.imread("./resources/images/ice_skating/0001.jpg")
+    # im_b = cv2.imread("./resources/images/ice_skating/0002.jpg")
 
     im_a = cv2.resize(im_a, (1280, 720), cv2.INTER_LINEAR)
     im_b = cv2.resize(im_b, (1280, 720), cv2.INTER_LINEAR)
@@ -84,6 +86,9 @@ def deng():
     kp = []
     kp.append(work.detect_features("./resources/images/building/building0001.jpg"))
     kp.append(work.detect_features("./resources/images/building/building0002.jpg"))
+    print(time.time() - t)
+    # kp.append(work.detect_features("./resources/images/ice_skating/0001.jpg"))
+    # kp.append(work.detect_features("./resources/images/ice_skating/0002.jpg"))
 
     for i in range(len(kp)):
         index_remove = []
@@ -102,6 +107,8 @@ def deng():
                            (0, 255, 0), 1)
         matched = cv2.circle(matched, (kp[0][i][1], kp[0][i][0]), 3, (255, 0, 0), 1)
         matched = cv2.circle(matched, (1280 + kp[1][index_list[i]][1], kp[1][index_list[i]][0]), 3, (255, 0, 0), 1)
+
+        # print("( %d , %d )  ( %d , %d )" % (kp[0][i][1], kp[0][i][0], kp[1][index_list[i]][1], kp[1][index_list[i]][0]))
     print(time.time() - t)
     cv2.imwrite("./result.jpg", matched)
     cv2.imshow('local_Gau_blur', matched)
