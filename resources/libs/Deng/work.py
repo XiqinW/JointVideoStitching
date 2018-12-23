@@ -1,13 +1,12 @@
 import cv2
 import numpy as np
-import math
 import time
-import resources.libs.Deng.doubly_linked_list as doubly_linked_list
+import logging
 
 FRAME_SIZE = (720, 1280, 3)
 GRID_ = (5, 5)
 MIN_FEATURE_NUM = 800
-FAST_THRESHOLD = 20
+FAST_THRESHOLD = 60
 
 # G2 in paper BRIEF: Binary Robust Independent Elementary Features⋆ Michael Calonder
 mean = [0, 0]
@@ -19,7 +18,7 @@ BRIEF_y = BRIEF_y.astype(np.int)
 
 class MyFast:
     def __init__(self, threshold=5, circumference=16, nums=9, non_max_suppression=True, n_m_s_window=5):
-        self.threshold = threshold
+        self.threshold = int(threshold)
         self.circumference = circumference
         self.nums = nums
         self.non_max_suppression = non_max_suppression
@@ -95,6 +94,7 @@ class MyFast:
 
         key_points_nums = len(key_points)
         res = []
+        # There seems to be a bug here.
         if self.non_max_suppression and key_points_nums > 1:
             flag = [1 for i in range(key_points_nums)]
 
@@ -131,10 +131,10 @@ class FeatureDetector:
                       n_m_s_window=5)
 
 
-def detect_features(path):
+def detect_features(im):
     t = time.time()
     feature_detector = FeatureDetector()
-    original_frame = cv2.imread(path)
+    original_frame = im
     frame = original_frame.copy()
 
     if frame.shape != FRAME_SIZE:
@@ -144,8 +144,7 @@ def detect_features(path):
     # and for each grid we use an independent FAST feature detector."
     grid_size = [int(FRAME_SIZE[0] / GRID_[0]), int(FRAME_SIZE[1] / GRID_[1])]
 
-    frame_kp = frame.copy()
-    u_score = FAST_THRESHOLD * 2
+    u_score = FAST_THRESHOLD
     score = [u_score for i in range(GRID_[0] * GRID_[1])]
     threshold = score.copy()
 
@@ -159,9 +158,8 @@ def detect_features(path):
                 print(
                     (threshold[i * GRID_[1] + j], score[i * GRID_[1] + j], u_score, score[i * GRID_[1] + j] / u_score),
                     end=" | ")
-                threshold[i * GRID_[1] + j] = math.pow((score[i * GRID_[1] + j] + 1) / (u_score + 1), 1 / 2) * \
-                                              threshold[
-                                                  i * GRID_[1] + j]
+                threshold[i * GRID_[1] + j] = np.power((score[i * GRID_[1] + j] + 1) / (u_score + 1), 1 / 2) * \
+                                              threshold[i * GRID_[1] + j]
 
                 # threshold[i * GRID_[1] + j] = 1 + score[i * GRID_[1] + j] / u_score * threshold[i * 5 + j]
 
@@ -206,26 +204,27 @@ def detect_features(path):
 
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
     bitstring_list = []
-    for point in kp:
-        bitstring = ''
-        if point[0] < 16 or point[1] < 16 or point[0] > FRAME_SIZE[0] - 15 or point[1] > FRAME_SIZE[1] - 15:
-            pass
+    index_remove = []
+    for i in range(len(kp)):
+        bitstring = 0
+        if kp[i][0] < 16 or kp[i][1] < 16 or kp[i][0] > FRAME_SIZE[0] - 15 or kp[i][1] > FRAME_SIZE[1] - 15:
+            index_remove.append(i)
         else:
 
             local_Gau_blur = cv2.GaussianBlur(
-                frame_gray[(point[0] - 16):(point[0] + 16), (point[1] - 16):(point[1] + 16)], (9, 9), 2)
+                frame_gray[(kp[i][0] - 16):(kp[i][0] + 16), (kp[i][1] - 16):(kp[i][1] + 16)], (9, 9), 2)
             for i in range(512):
                 if local_Gau_blur[BRIEF_x[2 * i], BRIEF_y[2 * i]] < local_Gau_blur[
                     BRIEF_x[2 * i + 1], BRIEF_y[2 * i + 1]]:
-                    bitstring += '1'
-                else:
-                    bitstring += '0'
+                    bitstring += 2 ** i
 
         bitstring_list.append(bitstring)
-        pass
     bitstring_list = np.asarray(bitstring_list)
+    bitstring_list = np.delete(bitstring_list, index_remove)
     bitstring_list = np.transpose(bitstring_list)
+    kp = np.delete(kp, index_remove, axis=0)
     kp = np.column_stack((kp, bitstring_list))
+    # frame_kp = frame.copy()
     # for i in range(len(kp[0])):
     #     # frame_kp_gray = cv2.circle(frame, (grid_key_point[1][i], grid_key_point[0][i]), 3, (0, 255, 0), 1)
     #     frame_kp = cv2.circle(frame, (kp[1][i], kp[0][i]), 3, (0, 255, 0), 1)
@@ -261,15 +260,16 @@ def gaussian_kernel_2d_opencv(kernel_size=3, sigma=0):
 
 
 def feature_match(kp_a, kp_b):
+    t = time.time()
     index_list = [[], []]
     s = 0
+    # this threshold depends on 1. the distance between object and camera
+    # 2. speed of camera's movement 3. speed of object's movement
+    threshold = 33
     for point_a in kp_a:
         distances = []
         for point_b in kp_b:
 
-            # this threshold depends on 1. the distance between object and camera
-            # 2. speed of camera's movement 3. speed of object's movement
-            threshold = 33
             if abs((point_a[0] - point_b[0])) < threshold and abs(point_a[1] - point_b[1]) < threshold:
                 hamming_distance = hamming_2(int(point_a[3], 2), int(point_b[3], 2))
             else:
@@ -298,7 +298,8 @@ def feature_match(kp_a, kp_b):
     index_list[0] = index_list[0][idx]
     index_list[1] = index_list[1][idx]
     kp_a = kp_a[idx]
-    t = time.time()
+    print(time.time() - t)
+    # distance_list=index_list[1]
     same_index_list = []
     k = 0
     index_list_len = len(index_list[0])
@@ -316,6 +317,7 @@ def feature_match(kp_a, kp_b):
             j += 1
         k += j + 1
         same_index_list.append(window)
+
     index_remove = []
     for same_index in same_index_list:
         if len(same_index) > 1:
@@ -336,8 +338,58 @@ def feature_match(kp_a, kp_b):
 
     index_list = np.delete(index_list, index_remove, axis=0)
     kp_a = np.delete(kp_a, index_remove, axis=0)
-    print(time.time() - t)
-    return index_list, kp_a
+
+    return np.asarray([kp_a[:, 0:2], kp_b[index_list][:, 0:2]])
+
+
+def feature_match2(kp_a, kp_b):
+    t = time.time()
+    index_list = [[], []]
+    # this threshold depends on 1. the distance between object and camera
+    # 2. speed of camera's movement 3. speed of object's movement
+    threshold = 33
+    for point_a in kp_a:
+        distances = np.asarray([])
+        for point_b in kp_b:
+
+            if abs((point_a[0] - point_b[0])) < threshold and abs(point_a[1] - point_b[1]) < threshold:
+                hamming_distance = hamming_2(int(point_a[3]), int(point_b[3]))
+            else:
+                hamming_distance = 512
+            distances = np.append(distances, hamming_distance)
+
+        min_distance = distances.min()
+        index_matched_list = np.argwhere(distances == min_distance)
+        index_matched = index_matched_list[0][0]
+        index_list[0].append(index_matched)
+
+    for point_b in kp_b:
+        distances = np.asarray([])
+        for point_a in kp_a:
+
+            if abs((point_b[0] - point_a[0])) < threshold and abs(point_b[1] - point_a[1]) < threshold:
+                hamming_distance = hamming_2(point_b[3], point_a[3])
+            else:
+                hamming_distance = 512
+            distances = np.append(distances, hamming_distance)
+
+        min_distance = distances.min()
+        index_matched_list = np.argwhere(distances == min_distance)
+        index_matched = index_matched_list[0][0]
+        index_list[1].append(index_matched)
+
+    index_remain = []
+    for i in range(len(index_list[0])):
+        if i == index_list[1][index_list[0][i]]:
+            index_remain.append(i)
+
+    kp_a = kp_a[index_remain]
+    index_list[0] = np.asarray(index_list[0])
+    index_remain = index_list[0][index_remain]
+    kp_b = kp_b[index_remain]
+
+    print("matching: %f" % (time.time() - t))
+    return np.hstack((kp_a[:, 0:2], kp_b[:, 0:2]))
 
 
 def detect_in_grids():
@@ -376,9 +428,8 @@ def detect_features_with_cv(path):
                     (threshold[i * GRID_[1] + j], score[i * GRID_[1] + j], u_score, score[i * GRID_[1] + j] / u_score),
                     end=" | ")
 
-                threshold[i * GRID_[1] + j] = math.pow((score[i * GRID_[1] + j] + 1) / (u_score + 1), 1 / 2) * \
-                                              threshold[
-                                                  i * GRID_[1] + j]
+                threshold[i * GRID_[1] + j] = np.power((score[i * GRID_[1] + j] + 1) / (u_score + 1), 1 / 2) * \
+                                              threshold[i * GRID_[1] + j]
 
                 # threshold[i * GRID_[1] + j] = 1 + score[i * GRID_[1] + j] / u_score * threshold[i * 5 + j]
 
@@ -400,3 +451,134 @@ def detect_features_with_cv(path):
     cv2.imshow('frame_kp', frame_kp)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+def point_normalize(kp):
+    N = kp.shape[0]
+    u_mean = sum(kp[:, 0]) / N
+    v_mean = sum(kp[:, 1]) / N
+    S = np.sqrt(2 * N) / np.sqrt(sum((kp[:, 0] - u_mean) ** 2) + sum((kp[:, 1] - v_mean) ** 2))
+    H = np.asarray([[S, 0, -u_mean * S], [0, S, -v_mean * S], [0, 0, 1]])
+
+    kp_normalized = []
+    for point in kp:
+        point = np.asarray([point[0], point[1], 1])
+        point_normalized = np.matmul(H, point)
+        kp_normalized.append(point_normalized)
+
+    return H, kp_normalized
+
+
+def homography_RANSAC(A_points, B_points):
+    # O_A = A_points
+    # O_B = B_points
+    length_matched_points = len(A_points)
+
+    k = 72
+    diff_threshold = 5
+    inliers_num_list = [[], [], []]
+    for i in range(k):
+        inliers_num_list[2].append([])
+
+        inliers_num = 0
+        index_4_random = []
+        while len(index_4_random) < 4:
+            rand_index = np.random.randint(length_matched_points, size=1)
+            if rand_index[0] not in index_4_random:
+                index_4_random.append(rand_index[0])
+        homography = caculate_homography(A_points, B_points, index_4_random)
+
+        for idx in range(0, length_matched_points):
+            transfered_point_A = np.dot(homography, np.asarray([[A_points[idx][0]], [A_points[idx][1]], [1]]))
+            if abs(transfered_point_A[0][0] - B_points[idx][0]) < diff_threshold and abs(
+                    transfered_point_A[1][0] - B_points[idx][1]) < diff_threshold:
+                inliers_num += 1
+                inliers_num_list[2][i].append(idx)
+        inliers_num_list[0].append(inliers_num)
+        inliers_num_list[1].append(homography)
+    final_inliers = inliers_num_list[2][inliers_num_list[0].index(max(inliers_num_list[0]))]
+
+    A = np.zeros((8, 8))
+    R = np.zeros((8, 1))
+    H_normalization_A, A_points = point_normalize(A_points)
+    H_normalization_B, B_points = point_normalize(B_points)
+
+    for i in final_inliers:
+        x1 = A_points[i][0]
+        y1 = A_points[i][1]
+        x2 = B_points[i][0]
+        y2 = B_points[i][1]
+        k0 = -x1
+        k1 = -y1
+        k2 = -1
+        k3 = x1 * x2
+        k4 = x2 * y1
+        k5 = x1 * y2
+        k6 = y1 * y2
+
+        A[0] += k0 * np.asarray([k0, k1, k2, 0, 0, 0, k3, k4], dtype=float)
+        A[1] += k1 * np.asarray([k0, k1, k2, 0, 0, 0, k3, k4], dtype=float)
+        A[2] += k2 * np.asarray([k0, k1, k2, 0, 0, 0, k3, k4], dtype=float)
+        A[3] += k0 * np.asarray([0, 0, 0, k0, k1, k2, k5, k6], dtype=float)
+        A[4] += k1 * np.asarray([0, 0, 0, k0, k1, k2, k5, k6], dtype=float)
+        A[5] += k2 * np.asarray([0, 0, 0, k0, k1, k2, k5, k6], dtype=float)
+        A[6] += np.asarray([k3 * k0, k3 * k1, k3 * k2, k5 * k0, k5 * k1, k5 * k2, k3 * k3 * k5 * k5, k3 * k4 + k5 * k6],
+                           dtype=float)
+        A[7] += np.asarray([k4 * k0, k4 * k1, k4 * k2, k6 * k0, k6 * k1, k6 * k2, k4 * k3 + k5 * k6, k4 * k4 + k6 * k6],
+                           dtype=float)
+
+        R += np.asarray([[-k0 * x2], [-k1 * x2], [-k2 * x2], [-k0 * y2], [-k1 * y2], [-k2 * y2], [-k3 * x2 - k5 * y2],
+                         [-k4 * x2 - k6 * y2]], dtype=float)
+        pass
+
+    F = np.append(np.linalg.solve(A, R), 1).reshape((3, 3))
+    homography = np.matmul(np.linalg.inv(H_normalization_B), F)
+    homography = np.matmul(homography, H_normalization_A)
+
+    # T_A2B = []
+    # for point in O_A:
+    #     res = np.matmul(homography, np.asarray([[point[0]], [point[1]], [1]]))
+    #     T_A2B.append([res[0][0], res[1][0]])
+    # # test = np.matmul(homography, np.asarray([[O_A[0][0]], [O_A[0][1]], [1]]))
+
+    return final_inliers, homography
+
+
+def caculate_homography(A_points, B_points, index_list):
+    x1 = A_points[index_list[0]][0]
+    y1 = A_points[index_list[0]][1]
+    x2 = B_points[index_list[0]][0]
+    y2 = B_points[index_list[0]][1]
+    x3 = A_points[index_list[1]][0]
+    y3 = A_points[index_list[1]][1]
+    x4 = B_points[index_list[1]][0]
+    y4 = B_points[index_list[1]][1]
+    x5 = A_points[index_list[2]][0]
+    y5 = A_points[index_list[2]][1]
+    x6 = B_points[index_list[2]][0]
+    y6 = B_points[index_list[2]][1]
+    x7 = A_points[index_list[3]][0]
+    y7 = A_points[index_list[3]][1]
+    x8 = B_points[index_list[3]][0]
+    y8 = B_points[index_list[3]][1]
+
+    A = np.zeros((8, 8))
+    R = np.asarray([[x2], [y2], [x4], [y4], [x6], [y6], [x8], [y8]])
+
+    A[0] = np.asarray([x1, y1, 1, 0, 0, 0, -x2 * x1, -x2 * y1])[:]
+    A[1] = np.asarray([0, 0, 0, x1, y1, 1, -x1 * y2, -y1 * y2])[:]
+    A[2] = np.asarray([x3, y3, 1, 0, 0, 0, -x4 * x3, -x4 * y3])[:]
+    A[3] = np.asarray([0, 0, 0, x3, y4, 1, -x3 * y4, -y3 * y4])[:]
+    A[4] = np.asarray([x5, y6, 1, 0, 0, 0, -x6 * x5, -x6 * y5])[:]
+    A[5] = np.asarray([0, 0, 0, x5, y5, 1, -x5 * y6, -y5 * y6])[:]
+    A[6] = np.asarray([x7, y8, 1, 0, 0, 0, -x8 * x7, -x8 * y7])[:]
+    A[7] = np.asarray([0, 0, 0, x7, y7, 1, -x7 * y8, -y7 * y8])[:]
+    H_A2B = np.linalg.solve(A, R)
+    H_A2B = np.append(H_A2B, 1).reshape((3, 3))
+
+    return H_A2B
+
+
+def stitch(im_a, im_b, homography):
+
+    pass
