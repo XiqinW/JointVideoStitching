@@ -6,7 +6,7 @@ import logging
 FRAME_SIZE = (720, 1280, 3)
 GRID_ = (5, 5)
 MIN_FEATURE_NUM = 800
-FAST_THRESHOLD = 60
+FAST_THRESHOLD = 50
 
 # G2 in paper BRIEF: Binary Robust Independent Elementary Features⋆ Michael Calonder
 mean = [0, 0]
@@ -17,7 +17,7 @@ BRIEF_y = BRIEF_y.astype(np.int)
 
 
 class MyFast:
-    def __init__(self, threshold=5, circumference=16, nums=9, non_max_suppression=True, n_m_s_window=5):
+    def __init__(self, threshold=5, circumference=16, nums=9, non_max_suppression=True, n_m_s_window=3):
         self.threshold = int(threshold)
         self.circumference = circumference
         self.nums = nums
@@ -108,7 +108,7 @@ class MyFast:
                             else:
                                 flag[i] = 0
                         else:
-                            break
+                            continue
             for i in range(key_points_nums):
                 if flag[i]:
                     res.append(key_points[i])
@@ -152,7 +152,10 @@ def detect_features(im):
         kp = np.asarray([np.asarray([None, None, None])])
         sum_score = 0
         for i in range(GRID_[0]):
+
             for j in range(GRID_[1]):
+                # if j % (GRID_[1] - 1) > 0 and i % (GRID_[0] - 1) > 0:
+                #     continue
                 # mask = np.zeros((frame.shape[0], frame.shape[1]), np.uint8)
                 # fast = feature_detector.fast()
                 print(
@@ -224,12 +227,6 @@ def detect_features(im):
     bitstring_list = np.transpose(bitstring_list)
     kp = np.delete(kp, index_remove, axis=0)
     kp = np.column_stack((kp, bitstring_list))
-    # frame_kp = frame.copy()
-    # for i in range(len(kp[0])):
-    #     # frame_kp_gray = cv2.circle(frame, (grid_key_point[1][i], grid_key_point[0][i]), 3, (0, 255, 0), 1)
-    #     frame_kp = cv2.circle(frame, (kp[1][i], kp[0][i]), 3, (0, 255, 0), 1)
-    # print(time.time() - t)
-    # cv2.imshow('frame_kp', frame_kp)
 
     return kp
 
@@ -348,11 +345,14 @@ def feature_match2(kp_a, kp_b):
     # this threshold depends on 1. the distance between object and camera
     # 2. speed of camera's movement 3. speed of object's movement
     threshold = 33
+    c = 0
+    l_ = len(kp_a)
     for point_a in kp_a:
+        print("a  %d / %d" % (c, l_))
+        c += 1
         distances = np.asarray([])
         for point_b in kp_b:
-
-            if abs((point_a[0] - point_b[0])) < threshold and abs(point_a[1] - point_b[1]) < threshold:
+            if hamming_is_in_interval(point_a, point_b):
                 hamming_distance = hamming_2(int(point_a[3]), int(point_b[3]))
             else:
                 hamming_distance = 512
@@ -362,12 +362,14 @@ def feature_match2(kp_a, kp_b):
         index_matched_list = np.argwhere(distances == min_distance)
         index_matched = index_matched_list[0][0]
         index_list[0].append(index_matched)
-
+    c = 0
+    l_ = len(kp_b)
     for point_b in kp_b:
+        print("a  %d / %d" % (c, l_))
+        c += 1
         distances = np.asarray([])
         for point_a in kp_a:
-
-            if abs((point_b[0] - point_a[0])) < threshold and abs(point_b[1] - point_a[1]) < threshold:
+            if hamming_is_in_interval(point_a, point_b):
                 hamming_distance = hamming_2(point_b[3], point_a[3])
             else:
                 hamming_distance = 512
@@ -390,6 +392,17 @@ def feature_match2(kp_a, kp_b):
 
     print("matching: %f" % (time.time() - t))
     return np.hstack((kp_a[:, 0:2], kp_b[:, 0:2]))
+
+
+def hamming_is_in_interval(point_a, point_b):
+    return True
+    threshold_top = 33
+    threshold_low = 1
+    if threshold_low < abs((point_b[0] - point_a[0])) < threshold_top and threshold_low < abs(
+            point_b[1] - point_a[1]) < threshold_top:
+        return True
+    else:
+        return False
 
 
 def detect_in_grids():
@@ -470,8 +483,8 @@ def point_normalize(kp):
 
 
 def homography_RANSAC(A_points, B_points):
-    # O_A = A_points
-    # O_B = B_points
+    O_A = A_points
+    O_B = B_points
     length_matched_points = len(A_points)
 
     k = 72
@@ -490,6 +503,7 @@ def homography_RANSAC(A_points, B_points):
 
         for idx in range(0, length_matched_points):
             transfered_point_A = np.dot(homography, np.asarray([[A_points[idx][0]], [A_points[idx][1]], [1]]))
+            # Happy new year!
             if abs(transfered_point_A[0][0] - B_points[idx][0]) < diff_threshold and abs(
                     transfered_point_A[1][0] - B_points[idx][1]) < diff_threshold:
                 inliers_num += 1
@@ -500,8 +514,8 @@ def homography_RANSAC(A_points, B_points):
 
     A = np.zeros((8, 8))
     R = np.zeros((8, 1))
-    H_normalization_A, A_points = point_normalize(A_points)
-    H_normalization_B, B_points = point_normalize(B_points)
+    # H_normalization_A, A_points = point_normalize(A_points)
+    # H_normalization_B, B_points = point_normalize(B_points)
 
     for i in final_inliers:
         x1 = A_points[i][0]
@@ -522,6 +536,7 @@ def homography_RANSAC(A_points, B_points):
         A[3] += k0 * np.asarray([0, 0, 0, k0, k1, k2, k5, k6], dtype=float)
         A[4] += k1 * np.asarray([0, 0, 0, k0, k1, k2, k5, k6], dtype=float)
         A[5] += k2 * np.asarray([0, 0, 0, k0, k1, k2, k5, k6], dtype=float)
+
         A[6] += np.asarray([k3 * k0, k3 * k1, k3 * k2, k5 * k0, k5 * k1, k5 * k2, k3 * k3 * k5 * k5, k3 * k4 + k5 * k6],
                            dtype=float)
         A[7] += np.asarray([k4 * k0, k4 * k1, k4 * k2, k6 * k0, k6 * k1, k6 * k2, k4 * k3 + k5 * k6, k4 * k4 + k6 * k6],
@@ -532,13 +547,14 @@ def homography_RANSAC(A_points, B_points):
         pass
 
     F = np.append(np.linalg.solve(A, R), 1).reshape((3, 3))
-    homography = np.matmul(np.linalg.inv(H_normalization_B), F)
-    homography = np.matmul(homography, H_normalization_A)
+    # homography = np.matmul(np.linalg.inv(H_normalization_B), F)
+    # homography = np.matmul(homography, H_normalization_A)
+    homography = F
 
-    # T_A2B = []
-    # for point in O_A:
-    #     res = np.matmul(homography, np.asarray([[point[0]], [point[1]], [1]]))
-    #     T_A2B.append([res[0][0], res[1][0]])
+    T_A2B = []
+    for point in O_A:
+        res = np.matmul(homography, np.asarray([[point[0]], [point[1]], [1]]))
+        T_A2B.append([res[0][0], res[1][0]])
     # # test = np.matmul(homography, np.asarray([[O_A[0][0]], [O_A[0][1]], [1]]))
 
     return final_inliers, homography
@@ -580,5 +596,18 @@ def caculate_homography(A_points, B_points, index_list):
 
 
 def stitch(im_a, im_b, homography):
+    corner = np.asarray([[[0], [0], [1]], [[0], [1280], [1]], [[720], [0], [1]], [[720], [1280], [1]]])
+    corner_transformed = []
+    for point in corner:
+        corner_transformed.append(np.matmul(homography, point))
+    corner_transformed = np.asarray(corner_transformed)
+    max_height = int(np.ceil(max(corner_transformed[:, 0])))
+    max_width = int(np.ceil(max(corner_transformed[:, 1])))
 
+    im_a_transformed = cv2.warpPerspective(im_a, homography, (2 * max_width, 2 * max_height))
+
+    cv2.imshow('im_a_transformed', im_a_transformed)
+    cv2.imshow('im_b', im_b)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     pass

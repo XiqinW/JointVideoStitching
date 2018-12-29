@@ -78,7 +78,7 @@ def deng():
     im_a = cv2.imread("./resources/images/building/building0001.jpg")
     im_b = cv2.imread("./resources/images/building/building0002.jpg")
     # im_a = cv2.imread("./resources/images/ice_skating/0001.jpg")
-    # im_b = cv2.imread("./resources/images/ice_skating/0002.jpg")
+    # im_b = cv2.imread("./resources/images/ice_skating/0005.jpg")
 
     im_a = cv2.resize(im_a, (1280, 720), cv2.INTER_LINEAR)
     im_b = cv2.resize(im_b, (1280, 720), cv2.INTER_LINEAR)
@@ -91,13 +91,12 @@ def deng():
     # kp.append(work.detect_features("./resources/images/ice_skating/0009.jpg"))
 
     kp_matched = work.feature_match2(kp[0], kp[1])
-    H, kp_normalized = work.point_normalize(kp_matched[:, 0:2])
 
     A_points = kp_matched[:, 0:2]
     B_points = kp_matched[:, 2:4]
 
     final_inliers, homography = work.homography_RANSAC(A_points, B_points)
-    res = work.stitch(im_a, im_b, homography)
+
     im = np.hstack((im_a, im_b))
 
     for i in final_inliers:
@@ -114,6 +113,7 @@ def deng():
     cv2.imshow('local_Gau_blur', matched)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+    res = work.stitch(im_a, im_b, homography)
 
 
 if __name__ == "__main__":
