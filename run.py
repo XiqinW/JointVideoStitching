@@ -119,5 +119,58 @@ def deng():
     # cv2.imwrite("./output/" + "out.jpg", res)
 
 
-if __name__ == "__main__":
-    deng()
+def duanmu(path_a, path_b, res_path):
+    img_path_a = gb.glob(path_a + "*.jpg")
+    img_path_b = gb.glob(path_b + "*.jpg")
+    num_a = len(img_path_a)
+    num_b = len(img_path_b)
+    if num_a != num_b:
+        raise Exception
+    for i in range(num_a):
+        t = time.time()
+        im_a = cv2.imread(img_path_a[i])
+        im_b = cv2.imread(img_path_b[i])
+        # im_a = cv2.imread("./resources/images/ice_skating/0001.jpg")
+        # im_b = cv2.imread("./resources/images/ice_skating/0005.jpg")
+
+        im_a = cv2.resize(im_a, (1280, 720), cv2.INTER_LINEAR)
+        im_b = cv2.resize(im_b, (1280, 720), cv2.INTER_LINEAR)
+        # work.detect_features("./resources/images/ice_skating/0001.jpg")
+        kp = []
+        kp.append(work.detect_features(im_a))
+        kp.append(work.detect_features(im_b))
+        print(time.time() - t)
+        # kp.append(work.detect_features("./resources/images/ice_skating/0001.jpg"))
+        # kp.append(work.detect_features("./resources/images/ice_skating/0009.jpg"))
+
+        kp_matched = work.feature_match2(kp[0], kp[1])
+
+        A_points = kp_matched[:, 0:2]
+        B_points = kp_matched[:, 2:4]
+
+        final_inliers, homography = work.homography_RANSAC(A_points, B_points)
+
+        im = np.hstack((im_a, im_b))
+
+        for i in final_inliers:
+            matched = cv2.line(im, (kp_matched[i][1], kp_matched[i][0]),
+                               (1280 + kp_matched[i][3], kp_matched[i][2]),
+                               (0, 255, 0), 1)
+        for i in final_inliers:
+            matched = cv2.circle(matched, (kp_matched[i][1], kp_matched[i][0]), 3, (255, 0, 0), 1)
+            matched = cv2.circle(matched, (1280 + kp_matched[i][3], kp_matched[i][2]), 3, (255, 0, 0), 1)
+
+            # print("( %d , %d )  ( %d , %d )" % (kp[0][i][1], kp[0][i][0], kp[1][index_list[i]][1], kp[1][index_list[i]][0]))
+        print(time.time() - t)
+        # 把图片拼接成全景图
+        (result, vis) = stitch((im_a, im_b), showMatches=True)
+        cv2.imwrite(res_path + f"out{i}.jpg", result)
+        # cv2.imwrite("./result.jpg", matched)
+        # cv2.imshow('local_Gau_blur', matched)
+        # cv2.waitKey(0)
+        # res = work.stitch(im_a, im_b, homography)
+        # cv2.imwrite("./output/" + "out.jpg", res)
+
+
+# if __name__ == "__main__":
+#     deng()
