@@ -37,5 +37,5 @@ def save_img(video, path):
         os.makedirs(SAVE_PATH)
 
     # 设置固定帧率
-    FRAME_RATE = 60
+    FRAME_RATE = 80
     video_to_pic(SAMPLE_VIDEO, SAVE_PATH, FRAME_RATE)
