@@ -64,7 +64,7 @@ def wang():
     imageA = cv2.imread(img_path[0])
     for i in range(num - 1):
         imageB = cv2.imread(img_path[i + 1])
-
+        cv2.imshow('b', imageB)
         # 把图片拼接成全景图
         (result, vis) = stitch((imageA, imageB), showMatches=True)
         cv2.imwrite("./output/" + str(i) + ".jpg", result)
@@ -109,11 +109,14 @@ def deng():
 
         # print("( %d , %d )  ( %d , %d )" % (kp[0][i][1], kp[0][i][0], kp[1][index_list[i]][1], kp[1][index_list[i]][0]))
     print(time.time() - t)
-    cv2.imwrite("./result.jpg", matched)
-    cv2.imshow('local_Gau_blur', matched)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # 把图片拼接成全景图
+    (result, vis) = stitch((im_a, im_b), showMatches=True)
+    cv2.imwrite("./output/" + "out.jpg", result)
+    # cv2.imwrite("./result.jpg", matched)
+    # cv2.imshow('local_Gau_blur', matched)
+    # cv2.waitKey(0)
     res = work.stitch(im_a, im_b, homography)
+    # cv2.imwrite("./output/" + "out.jpg", res)
 
 
 if __name__ == "__main__":

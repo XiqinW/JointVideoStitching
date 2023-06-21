@@ -12,7 +12,7 @@ class Stitcher:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # 建立SIFT生成器
-        descriptor = cv2.xfeatures2d.SIFT_create()
+        descriptor = cv2.SIFT_create()
         # 检测SIFT特征点，并计算描述子
         (kps, features) = descriptor.detectAndCompute(image, None)
 
