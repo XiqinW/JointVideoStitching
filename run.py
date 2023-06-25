@@ -178,5 +178,5 @@ def duanmu(path_a, path_b, res_path):
 
 
 if __name__ == "__main__":
-    duanmu(path_a = 'video_a',path_b = 'video_b',res_path='output')
+    duanmu(path_a = 'video_a',path_b = 'video_b',res_path='./output')
 
