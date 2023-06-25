@@ -3,6 +3,9 @@ import cv2
 import logging
 import numpy as np
 import time
+
+
+
 import resources.libs.Wang.Stitcher as Sticher
 import resources.libs.Deng.work as work
 
@@ -75,8 +78,8 @@ def wang():
 
 def deng():
     t = time.time()
-    im_a = cv2.imread("./resources/images/building/building0001.jpg")
-    im_b = cv2.imread("./resources/images/building/building0002.jpg")
+    im_a = cv2.imread("./video/video_a/1.jpg")
+    im_b = cv2.imread("./video/video_b/1.jpg")
     # im_a = cv2.imread("./resources/images/ice_skating/0001.jpg")
     # im_b = cv2.imread("./resources/images/ice_skating/0005.jpg")
 
@@ -112,11 +115,11 @@ def deng():
     # 把图片拼接成全景图
     (result, vis) = stitch((im_a, im_b), showMatches=True)
     cv2.imwrite("./output/" + "out.jpg", result)
-    # cv2.imwrite("./result.jpg", matched)
-    # cv2.imshow('local_Gau_blur', matched)
-    # cv2.waitKey(0)
+    cv2.imwrite("./result.jpg", matched)
+    cv2.imshow('local_Gau_blur', matched)
+    cv2.waitKey(0)
     res = work.stitch(im_a, im_b, homography)
-    # cv2.imwrite("./output/" + "out.jpg", res)
+    cv2.imwrite("./output/" + "out.jpg", res)
 
 
 def duanmu(path_a, path_b, res_path):
@@ -130,6 +133,8 @@ def duanmu(path_a, path_b, res_path):
         t = time.time()
         im_a = cv2.imread(img_path_a[i])
         im_b = cv2.imread(img_path_b[i])
+        # im_a = cv2.imread("./video/video_a/*.jpg")
+        # im_b = cv2.imread("./video/video_b/*.jpg")
         # im_a = cv2.imread("./resources/images/ice_skating/0001.jpg")
         # im_b = cv2.imread("./resources/images/ice_skating/0005.jpg")
 
@@ -165,12 +170,13 @@ def duanmu(path_a, path_b, res_path):
         # 把图片拼接成全景图
         (result, vis) = stitch((im_a, im_b), showMatches=True)
         cv2.imwrite(res_path + f"out{i}.jpg", result)
-        # cv2.imwrite("./result.jpg", matched)
-        # cv2.imshow('local_Gau_blur', matched)
-        # cv2.waitKey(0)
-        # res = work.stitch(im_a, im_b, homography)
-        # cv2.imwrite("./output/" + "out.jpg", res)
+        cv2.imwrite("./result.jpg", matched)
+        cv2.imshow('local_Gau_blur', matched)
+        cv2.waitKey(0)
+        res = work.stitch(im_a, im_b, homography)
+        cv2.imwrite("./output/" + "out.jpg", res)
 
 
-# if __name__ == "__main__":
-#     deng()
+if __name__ == "__main__":
+    duanmu(path_a = 'video_a',path_b = 'video_b',res_path='output')
+
