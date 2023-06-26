@@ -122,7 +122,11 @@ def deng():
     cv2.imwrite("./output/" + "out.jpg", res)
 
 
-def duanmu(path_a, path_b, res_path):
+def duanmu():
+    path_a = './resources/images/videoa/'
+    path_b = './resources/images/videoa/'
+    # path_b = './video/video_b'
+    # res_path = './output'
     img_path_a = gb.glob(path_a + "*.jpg")
     img_path_b = gb.glob(path_b + "*.jpg")
     num_a = len(img_path_a)
@@ -169,14 +173,16 @@ def duanmu(path_a, path_b, res_path):
         print(time.time() - t)
         # 把图片拼接成全景图
         (result, vis) = stitch((im_a, im_b), showMatches=True)
-        cv2.imwrite(res_path + f"out{i}.jpg", result)
+        cv2.imwrite("./dmoutput/" + f"out{i}.jpg", result)
         cv2.imwrite("./result.jpg", matched)
         cv2.imshow('local_Gau_blur', matched)
         cv2.waitKey(0)
-        res = work.stitch(im_a, im_b, homography)
-        cv2.imwrite("./output/" + "out.jpg", res)
+        # res = work.stitch(im_a, im_b, homography)
+        # cv2.imwrite("./dmoutput/" + str(i) + ".jpg",res)
+
+
 
 
 if __name__ == "__main__":
-    duanmu(path_a = 'video_a',path_b = 'video_b',res_path='output')
+    duanmu()
 
