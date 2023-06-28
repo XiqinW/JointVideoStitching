@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import time
+import random
 import logging
 
 FRAME_SIZE = (720, 1280, 3)
@@ -496,7 +497,9 @@ def homography_RANSAC(A_points, B_points):
         inliers_num = 0
         index_4_random = []
         while len(index_4_random) < 4:
+
             rand_index = np.random.randint(length_matched_points, size=1)
+
             if rand_index[0] not in index_4_random:
                 index_4_random.append(rand_index[0])
         homography = caculate_homography(A_points, B_points, index_4_random)
@@ -546,7 +549,8 @@ def homography_RANSAC(A_points, B_points):
                          [-k4 * x2 - k6 * y2]], dtype=float)
         pass
 
-    F = np.append(np.linalg.solve(A, R), 1).reshape((3, 3))
+
+    F = np.append(np.linalg.solve(A, R), 1).reshape((3,3))
     # homography = np.matmul(np.linalg.inv(H_normalization_B), F)
     # homography = np.matmul(homography, H_normalization_A)
     homography = F
@@ -604,7 +608,7 @@ def stitch(im_a, im_b, homography):
     max_height = int(np.ceil(max(corner_transformed[:, 0])))
     max_width = int(np.ceil(max(corner_transformed[:, 1])))
 
-    im_a_transformed = cv2.warpPerspective(im_a, homography, (2 * max_width, 2 * max_height))
+    im_a_transformed = cv2.warpPerspective(im_a, [homography], (2 * max_width, 2 * max_height))
 
     cv2.imshow('im_a_transformed', im_a_transformed)
     cv2.imshow('im_b', im_b)
